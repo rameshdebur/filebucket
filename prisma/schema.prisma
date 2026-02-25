@@ -1,0 +1,34 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Bucket {
+  id         String     @id @default(uuid())
+  folderName String     
+  pin        String     
+  createdAt  DateTime   @default(now())
+  expiresAt  DateTime   
+  status     String     @default("ACTIVE") 
+  files      File[]
+}
+
+model File {
+  id         String   @id @default(uuid())
+  bucketId   String
+  bucket     Bucket   @relation(fields: [bucketId], references: [id], onDelete: Cascade)
+  s3Key      String   
+  filename   String
+  size       Int
+  mimeType   String
+}
