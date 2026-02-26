@@ -5,9 +5,11 @@ if (!process.env.S3_ENDPOINT || !process.env.AWS_ACCESS_KEY_ID || !process.env.A
 }
 
 export const s3 = new S3Client({
-    region: "auto",
+    region: process.env.S3_REGION || "auto",
     endpoint: process.env.S3_ENDPOINT!,
-    forcePathStyle: true,
+    // Railway Buckets use virtual-hosted-style URLs (no forcePathStyle)
+    forcePathStyle: false,
+    // Disable automatic checksums — not all S3-compatible stores support them
     requestChecksumCalculation: "WHEN_REQUIRED",
     responseChecksumValidation: "WHEN_REQUIRED",
     credentials: {
