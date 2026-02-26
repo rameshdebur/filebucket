@@ -1,20 +1,41 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+// Simple in-memory rate limiter: 5 attempts per IP per 60 seconds
+const attempts = new Map<string, { count: number; resetAt: number }>();
+
+function isRateLimited(ip: string): boolean {
+    const now = Date.now();
+    const entry = attempts.get(ip);
+
+    if (!entry || now > entry.resetAt) {
+        attempts.set(ip, { count: 1, resetAt: now + 60_000 });
+        return false;
+    }
+
+    if (entry.count >= 5) return true;
+
+    entry.count++;
+    return false;
+}
+
 export async function POST(req: Request) {
     try {
+        // Rate limit by IP
+        const ip = req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip") ?? "unknown";
+        if (isRateLimited(ip)) {
+            return NextResponse.json({ error: "Too many attempts. Try again in a minute." }, { status: 429 });
+        }
+
         const body = await req.json();
         const { pin } = body;
 
-        if (!pin || typeof pin !== "string" || pin.length !== 6) {
+        if (!pin || typeof pin !== "string" || pin.length !== 4) {
             return NextResponse.json({ error: "Invalid PIN format" }, { status: 400 });
         }
 
         const bucket = await prisma.bucket.findFirst({
-            where: {
-                pin: pin,
-                status: "ACTIVE",
-            },
+            where: { pin, status: "ACTIVE" },
         });
 
         if (!bucket) {

@@ -12,7 +12,7 @@ export async function POST(req: Request) {
         }
 
         // Generate a 6-digit PIN securely
-        const pin = Math.floor(100000 + Math.random() * 900000).toString();
+        const pin = Math.floor(1000 + Math.random() * 9000).toString();
 
         let expiresAt = addHours(new Date(), 72); // Default 72 hours expiry
         let finalFolderName = folderName.trim();

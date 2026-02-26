@@ -18,11 +18,11 @@ export default function Home() {
   const [successData, setSuccessData] = useState<{ pin: string; folderName: string } | null>(null);
 
   // Retrieve State
-  const [pin, setPin] = useState(["", "", "", "", "", ""]);
+  const [pin, setPin] = useState(["", "", "", ""]);
   const [retrieving, setRetrieving] = useState(false);
   const pinRefs = [
-    useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null),
-    useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)
+    useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)
   ];
 
   // --- Upload Handlers ---
@@ -121,7 +121,7 @@ export default function Home() {
     setPin(newPin);
 
     // Auto-focus next input
-    if (value && index < 5) {
+    if (value && index < 3) {
       pinRefs[index + 1].current?.focus();
     }
   };
@@ -129,14 +129,14 @@ export default function Home() {
   const handlePinKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Backspace" && !pin[index] && index > 0) {
       pinRefs[index - 1].current?.focus();
-    } else if (e.key === "Enter" && pin.join("").length === 6) {
+    } else if (e.key === "Enter" && pin.join("").length === 4) {
       handleRetrieve();
     }
   };
 
   const handleRetrieve = async () => {
     const fullPin = pin.join("");
-    if (fullPin.length !== 6) return;
+    if (fullPin.length !== 4) return;
     setRetrieving(true);
 
     try {
@@ -160,7 +160,7 @@ export default function Home() {
       } else {
         alert("An unknown error occurred.");
       }
-      setPin(["", "", "", "", "", ""]);
+      setPin(["", "", "", ""]);
       pinRefs[0].current?.focus();
     } finally {
       setRetrieving(false);
@@ -283,7 +283,7 @@ export default function Home() {
             className="btn btn-primary"
             style={{ width: "100%", maxWidth: "300px" }}
             onClick={handleRetrieve}
-            disabled={pin.join("").length !== 6 || retrieving}
+            disabled={pin.join("").length !== 4 || retrieving}
           >
             {retrieving ? <div className="spinner"></div> : "Unlock Bucket"}
           </button>
@@ -304,7 +304,7 @@ export default function Home() {
             <p style={{ color: "var(--text-secondary)", marginBottom: "1.5rem" }}>Your files are secure. Share this PIN to retrieve them.</p>
 
             <div style={{ background: "rgba(0,0,0,0.5)", padding: "1.5rem", borderRadius: "var(--radius-md)", marginBottom: "1rem" }}>
-              <div style={{ fontSize: "3rem", fontWeight: "800", letterSpacing: "0.5rem", color: "var(--accent-blue)" }}>
+              <div style={{ fontSize: "4rem", fontWeight: "800", letterSpacing: "0.8rem", color: "var(--accent-blue)" }}>
                 {successData.pin}
               </div>
             </div>
