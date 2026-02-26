@@ -79,13 +79,42 @@ export default function BucketPage() {
         }
     };
 
+    // Fallback for iPad / Android tablets / Firefox / Safari:
+    // fetch each file as a blob and trigger download via a hidden <a> tag
+    const downloadSequentially = async () => {
+        setDownloadProgress({ active: true, current: 0, total: files.length, currentName: '', done: false, error: null });
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            setDownloadProgress(p => ({ ...p, current: i + 1, currentName: file.filename }));
+            try {
+                const res = await fetch(file.downloadUrl);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const blob = await res.blob();
+                const objectUrl = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = objectUrl;
+                a.download = file.filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                // Small delay so the browser has time to handle each download
+                await new Promise(r => setTimeout(r, 600));
+                URL.revokeObjectURL(objectUrl);
+            } catch (err) {
+                setDownloadProgress(p => ({ ...p, error: `Failed to download "${file.filename}": ${err instanceof Error ? err.message : 'Unknown error'}`, done: true }));
+                return;
+            }
+        }
+        setDownloadProgress(p => ({ ...p, done: true, currentName: '' }));
+    };
+
     const handleDownloadAll = async () => {
-        // Check if File System Access API is supported (Chrome/Edge desktop)
+        // Check if File System Access API is supported (Chrome/Edge desktop only)
         const hasDirectoryPicker = typeof window !== 'undefined' && 'showDirectoryPicker' in window;
 
         if (!hasDirectoryPicker) {
-            // Fallback: open each file in a new tab
-            for (const file of files) window.open(file.downloadUrl, '_blank');
+            // iPad, Android tablets, Firefox, Safari — blob download fallback
+            await downloadSequentially();
             return;
         }
 
