@@ -43,11 +43,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ binId: 
             });
 
             // Generate presigned URL (valid for 15 minutes)
-            // unhoistableHeaders prevents SDK from adding x-amz-checksum headers that R2 rejects
-            const uploadUrl = await getSignedUrl(s3, command, {
-                expiresIn: 900,
-                unhoistableHeaders: new Set(["x-amz-checksum-crc32"]),
-            });
+            const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 900 });
 
             // Save file record to Database
             await prisma.file.create({
