@@ -171,13 +171,23 @@ export default function Home() {
     <main className="container animate-fade-in">
 
       <nav className="navbar">
-        <div className="nav-brand" style={{ cursor: 'pointer' }} onClick={() => router.push('/')}>
-          <span style={{ color: 'var(--primary)', fontWeight: 800 }}>Drop</span><span style={{ opacity: 0.9 }}>R</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div className="nav-brand" style={{ cursor: 'pointer' }} onClick={() => router.push('/')}>
+            <span style={{ color: 'var(--primary)', fontWeight: 800 }}>Drop</span><span style={{ opacity: 0.9 }}>R</span>
+          </div>
+          {/* Hidden admin portal — USB icon only you know about */}
+          <Link href="/admin" style={{ opacity: 0.18, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', lineHeight: 1, transition: 'opacity 0.2s' }}
+            onMouseEnter={e => (e.currentTarget.style.opacity = '0.5')}
+            onMouseLeave={e => (e.currentTarget.style.opacity = '0.18')}
+            title="">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M15 7h2v2h-2V7zm-4 0h2v2h-2V7zM7 2v13h3v3l4 4 4-4v-3h3V2H7zm10 11H9v-2h8v2zm0-4H9V7h8v2z" />
+            </svg>
+          </Link>
         </div>
-        <div className="nav-links">
-          <Link href="/admin" className="nav-link">Doctor Portal</Link>
-        </div>
+        <div className="nav-links" />
       </nav>
+
 
       <header style={{ textAlign: "center", marginBottom: "3rem", marginTop: "2rem" }}>
         <h1 style={{ fontSize: "3rem", marginBottom: "0.5rem", letterSpacing: "-0.05em" }} className="text-gradient">
