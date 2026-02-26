@@ -68,18 +68,36 @@ export default function Home() {
       if (!initRes.ok) throw new Error("Failed to initialize bucket");
       const bucketData = await initRes.json();
 
-      // 2. Upload files directly through our API (no CORS issues!)
-      const formData = new FormData();
-      files.forEach((file) => {
-        formData.append("files", file);
-      });
+      // 2. Get Presigned URLs (backend also auto-configures CORS on bucket)
+      const filePayload = files.map(f => ({
+        filename: f.name,
+        mimeType: f.type || "application/octet-stream",
+        size: f.size,
+      }));
 
-      const uploadRes = await fetch(`/api/buckets/${bucketData.bucketId}/upload`, {
+      const presignRes = await fetch(`/api/buckets/${bucketData.bucketId}/upload`, {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ files: filePayload }),
       });
 
-      if (!uploadRes.ok) throw new Error("Failed to upload files");
+      if (!presignRes.ok) throw new Error("Failed to get upload URLs");
+      const { presignedUrls } = await presignRes.json();
+
+      // 3. Upload directly to Railway bucket using presigned URLs (free egress!)
+      await Promise.all(
+        files.map(async (file, index) => {
+          const { uploadUrl } = presignedUrls[index];
+          const res = await fetch(uploadUrl, {
+            method: "PUT",
+            body: file,
+            headers: {
+              "Content-Type": file.type || "application/octet-stream",
+            },
+          });
+          if (!res.ok) throw new Error(`Failed to upload ${file.name}: ${res.status}`);
+        })
+      );
 
       setSuccessData({ pin: bucketData.pin, folderName: bucketData.folderName });
       setFiles([]);

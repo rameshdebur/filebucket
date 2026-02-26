@@ -1,14 +1,33 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { s3, BUCKET_NAME } from "@/lib/s3";
+import { s3, BUCKET_NAME, configureBucketCors } from "@/lib/s3";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import crypto from "crypto";
 
-// Increase body size limit for file uploads (50MB)
 export const runtime = "nodejs";
+
+// Configure CORS on bucket once at cold start
+let corsConfigured = false;
+async function ensureCors() {
+    if (!corsConfigured) {
+        await configureBucketCors();
+        corsConfigured = true;
+    }
+}
 
 export async function POST(req: Request, { params }: { params: Promise<{ binId: string }> }) {
     try {
+        // Ensure CORS is set on the bucket so presigned uploads work from the browser
+        await ensureCors();
+
+        const body = await req.json();
+        const { files } = body; // Array of { filename, mimeType, size }
+
+        if (!files || !Array.isArray(files) || files.length === 0) {
+            return NextResponse.json({ error: "Files array is required" }, { status: 400 });
+        }
+
         const resolvedParams = await params;
         const binId = resolvedParams.binId;
 
@@ -21,57 +40,42 @@ export async function POST(req: Request, { params }: { params: Promise<{ binId: 
             return NextResponse.json({ error: "Bucket not found or expired" }, { status: 404 });
         }
 
-        // Parse the FormData from the request
-        const formData = await req.formData();
-        const uploadedFiles = formData.getAll("files") as File[];
+        const presignedUrls = [];
 
-        if (!uploadedFiles || uploadedFiles.length === 0) {
-            return NextResponse.json({ error: "No files provided" }, { status: 400 });
-        }
+        for (const file of files) {
+            const { filename, mimeType, size } = file;
 
-        const results = [];
-
-        for (const file of uploadedFiles) {
             const fileId = crypto.randomUUID();
-            const s3Key = `${bucket.id}/${fileId}-${file.name}`;
-
-            // Read file into buffer and upload to S3 server-side
-            const arrayBuffer = await file.arrayBuffer();
-            const buffer = Buffer.from(arrayBuffer);
+            const s3Key = `${bucket.id}/${fileId}-${filename}`;
 
             const command = new PutObjectCommand({
                 Bucket: BUCKET_NAME,
                 Key: s3Key,
-                Body: buffer,
-                ContentType: file.type || "application/octet-stream",
-                ContentLength: buffer.length,
+                ContentType: mimeType || "application/octet-stream",
             });
 
-            await s3.send(command);
+            // Generate presigned URL valid for 15 minutes
+            const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 900 });
 
-            // Save file record to Database
+            // Save file record to DB
             await prisma.file.create({
                 data: {
                     id: fileId,
                     bucketId: bucket.id,
                     s3Key,
-                    filename: file.name,
-                    size: buffer.length,
-                    mimeType: file.type || "application/octet-stream",
+                    filename,
+                    size,
+                    mimeType: mimeType || "application/octet-stream",
                 }
             });
 
-            results.push({
-                fileId,
-                filename: file.name,
-                size: buffer.length,
-            });
+            presignedUrls.push({ fileId, filename, uploadUrl });
         }
 
-        return NextResponse.json({ uploaded: results }, { status: 200 });
+        return NextResponse.json({ presignedUrls }, { status: 200 });
 
     } catch (error) {
-        console.error("Error uploading files:", error);
+        console.error("Error generating presigned URLs:", error);
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
 }
