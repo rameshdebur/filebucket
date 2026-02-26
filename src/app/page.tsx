@@ -294,7 +294,7 @@ export default function Home() {
       {/* --- SUCCESS MODAL --- */}
       {successData && (
         <div className="modal-overlay">
-          <div className="glass-panel animate-fade-in" style={{ maxWidth: "400px", textAlign: "center" }}>
+          <div className="glass-panel animate-fade-in" style={{ maxWidth: "420px", textAlign: "center" }}>
             <div style={{ color: "var(--accent-purple)", marginBottom: "1rem" }}>
               <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ width: "64px", height: "64px", margin: "0 auto" }}>
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -303,23 +303,47 @@ export default function Home() {
             <h3 style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }}>Upload Complete</h3>
             <p style={{ color: "var(--text-secondary)", marginBottom: "1.5rem" }}>Your files are secure. Share this PIN to retrieve them.</p>
 
-            <div style={{ background: "rgba(0,0,0,0.5)", padding: "1.5rem", borderRadius: "var(--radius-md)", marginBottom: "1.5rem" }}>
+            <div style={{ background: "rgba(0,0,0,0.5)", padding: "1.5rem", borderRadius: "var(--radius-md)", marginBottom: "1rem" }}>
               <div style={{ fontSize: "3rem", fontWeight: "800", letterSpacing: "0.5rem", color: "var(--accent-blue)" }}>
                 {successData.pin}
               </div>
             </div>
 
-            <p style={{ fontSize: "0.9rem", color: "var(--text-secondary)", marginBottom: "2rem" }}>
+            <p style={{ fontSize: "0.9rem", color: "var(--text-secondary)", marginBottom: "1.5rem" }}>
               Folder Name: <strong>{successData.folderName}</strong><br />
               <span style={{ fontSize: "0.8rem", opacity: 0.7 }}>(Save this name if you forget the PIN)</span>
             </p>
 
+            {/* Screenshot reminder */}
+            <div style={{
+              background: "rgba(251, 191, 36, 0.08)",
+              border: "1px solid rgba(251, 191, 36, 0.4)",
+              borderRadius: "var(--radius-md)",
+              padding: "0.9rem 1rem",
+              marginBottom: "1.5rem",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.75rem",
+              textAlign: "left",
+            }}>
+              <span style={{ fontSize: "1.6rem", flexShrink: 0 }}>📸</span>
+              <div>
+                <p style={{ margin: 0, fontWeight: 700, color: "rgb(251, 191, 36)", fontSize: "0.85rem" }}>
+                  Take a screenshot now!
+                </p>
+                <p style={{ margin: "0.2rem 0 0", fontSize: "0.78rem", color: "rgba(251,191,36,0.7)", lineHeight: 1.4 }}>
+                  This PIN won&apos;t be shown again. Photo or screenshot it before closing.
+                </p>
+              </div>
+            </div>
+
             <button className="btn btn-secondary" style={{ width: "100%" }} onClick={() => setSuccessData(null)}>
-              Close
+              I&apos;ve saved my PIN — Close
             </button>
           </div>
         </div>
       )}
+
 
     </main>
   );
