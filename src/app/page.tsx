@@ -79,16 +79,13 @@ export default function Home() {
       if (!presignRes.ok) throw new Error("Failed to get upload URLs");
       const { presignedUrls } = await presignRes.json();
 
-      // 3. Upload to S3
+      // 3. Upload directly to R2 using presigned URLs
       await Promise.all(
         files.map(async (file, index) => {
           const presigned = presignedUrls[index];
           await fetch(presigned.uploadUrl, {
             method: "PUT",
             body: file,
-            headers: {
-              "Content-Type": file.type || "application/octet-stream",
-            },
           });
         })
       );

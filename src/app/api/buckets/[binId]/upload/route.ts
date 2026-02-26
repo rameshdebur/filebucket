@@ -36,16 +36,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ binId: 
             const fileId = crypto.randomUUID();
             const s3Key = `${bucket.id}/${fileId}-${filename}`;
 
-            // Create command for upload
+            // Create command for upload — keep signed headers minimal for R2 compatibility
             const command = new PutObjectCommand({
                 Bucket: BUCKET_NAME,
                 Key: s3Key,
-                ContentType: mimeType,
-                ContentLength: size,
             });
 
             // Generate presigned URL (valid for 15 minutes)
-            const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 900 });
+            // unhoistableHeaders prevents SDK from adding x-amz-checksum headers that R2 rejects
+            const uploadUrl = await getSignedUrl(s3, command, {
+                expiresIn: 900,
+                unhoistableHeaders: new Set(["x-amz-checksum-crc32"]),
+            });
 
             // Save file record to Database
             await prisma.file.create({
