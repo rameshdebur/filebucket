@@ -48,6 +48,16 @@ export default function BucketPage() {
     const [closing, setClosing] = useState(false);
     const [expiresAt, setExpiresAt] = useState<Date | null>(null);
 
+    // Download-to-folder state
+    const [downloadProgress, setDownloadProgress] = useState<{
+        active: boolean;
+        current: number;
+        total: number;
+        currentName: string;
+        done: boolean;
+        error: string | null;
+    }>({ active: false, current: 0, total: 0, currentName: '', done: false, error: null });
+
     const countdown = useCountdown(expiresAt);
 
     useEffect(() => {
@@ -70,7 +80,45 @@ export default function BucketPage() {
     };
 
     const handleDownloadAll = async () => {
-        for (const file of files) window.open(file.downloadUrl, "_blank");
+        // Check if File System Access API is supported (Chrome/Edge desktop)
+        const hasDirectoryPicker = typeof window !== 'undefined' && 'showDirectoryPicker' in window;
+
+        if (!hasDirectoryPicker) {
+            // Fallback: open each file in a new tab
+            for (const file of files) window.open(file.downloadUrl, '_blank');
+            return;
+        }
+
+        let dirHandle: FileSystemDirectoryHandle;
+        try {
+            // Open the native OS folder picker
+            dirHandle = await (window as Window & typeof globalThis & { showDirectoryPicker: (opts?: object) => Promise<FileSystemDirectoryHandle> }).showDirectoryPicker({ mode: 'readwrite' });
+        } catch {
+            // User cancelled the picker — do nothing
+            return;
+        }
+
+        setDownloadProgress({ active: true, current: 0, total: files.length, currentName: '', done: false, error: null });
+
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            setDownloadProgress(p => ({ ...p, current: i + 1, currentName: file.filename }));
+            try {
+                const res = await fetch(file.downloadUrl);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const blob = await res.blob();
+
+                const fileHandle = await dirHandle.getFileHandle(file.filename, { create: true });
+                const writable = await fileHandle.createWritable();
+                await writable.write(blob);
+                await writable.close();
+            } catch (err) {
+                setDownloadProgress(p => ({ ...p, error: `Failed to save "${file.filename}": ${err instanceof Error ? err.message : 'Unknown error'}`, done: true }));
+                return;
+            }
+        }
+
+        setDownloadProgress(p => ({ ...p, done: true, currentName: '' }));
     };
 
     const handleCloseBucket = async () => {
@@ -210,13 +258,71 @@ export default function BucketPage() {
             </section>
 
             <div style={{ display: "flex", gap: "1rem", justifyContent: "flex-end" }}>
-                <button className="btn btn-primary" onClick={handleDownloadAll} disabled={files.length === 0}>
-                    Download All
+                <button className="btn btn-primary" onClick={handleDownloadAll} disabled={files.length === 0 || downloadProgress.active}>
+                    {downloadProgress.active && !downloadProgress.done ? <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} /> Saving...</span> : '📁 Save All to Folder'}
                 </button>
                 <button className="btn" style={{ background: "rgba(236, 72, 153, 0.1)", color: "var(--accent-pink)", border: "1px solid rgba(236, 72, 153, 0.3)" }} onClick={handleCloseBucket} disabled={closing}>
                     {closing ? "Destroying..." : "Close & Destroy Drop"}
                 </button>
             </div>
+
+            {/* Download Progress Overlay */}
+            {downloadProgress.active && (
+                <div className="modal-overlay">
+                    <div className="glass-panel animate-fade-in" style={{ maxWidth: '420px', width: '100%', textAlign: 'center' }}>
+                        {!downloadProgress.done ? (
+                            <>
+                                <div style={{ color: 'var(--accent-blue)', marginBottom: '1.5rem' }}>
+                                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" style={{ margin: '0 auto' }}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                    </svg>
+                                </div>
+                                <h3 style={{ fontSize: '1.3rem', marginBottom: '0.5rem' }}>Saving to Folder</h3>
+                                <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+                                    {downloadProgress.current} of {downloadProgress.total} — <span style={{ color: 'var(--text-primary)' }}>{downloadProgress.currentName}</span>
+                                </p>
+                                {/* Progress bar */}
+                                <div style={{ background: 'rgba(255,255,255,0.08)', borderRadius: '999px', height: '8px', overflow: 'hidden', marginBottom: '0.75rem' }}>
+                                    <div style={{
+                                        height: '100%',
+                                        borderRadius: '999px',
+                                        background: 'linear-gradient(90deg, var(--accent-blue), var(--accent-purple))',
+                                        width: `${(downloadProgress.current / downloadProgress.total) * 100}%`,
+                                        transition: 'width 0.3s ease',
+                                    }} />
+                                </div>
+                                <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                                    {Math.round((downloadProgress.current / downloadProgress.total) * 100)}% complete
+                                </p>
+                            </>
+                        ) : downloadProgress.error ? (
+                            <>
+                                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>⚠️</div>
+                                <h3 style={{ fontSize: '1.3rem', marginBottom: '0.75rem', color: 'var(--accent-pink)' }}>Download Error</h3>
+                                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>{downloadProgress.error}</p>
+                                <button className="btn btn-secondary" style={{ width: '100%' }} onClick={() => setDownloadProgress(p => ({ ...p, active: false }))}>
+                                    Close
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <div style={{ color: 'var(--accent-purple)', marginBottom: '1rem' }}>
+                                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ width: '64px', height: '64px', margin: '0 auto' }}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                </div>
+                                <h3 style={{ fontSize: '1.3rem', marginBottom: '0.5rem' }}>All Files Saved!</h3>
+                                <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
+                                    {downloadProgress.total} file{downloadProgress.total !== 1 ? 's' : ''} saved to your chosen folder.
+                                </p>
+                                <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => setDownloadProgress(p => ({ ...p, active: false }))}>
+                                    Done
+                                </button>
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
 
         </main>
     );
