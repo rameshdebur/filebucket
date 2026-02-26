@@ -66,14 +66,40 @@ export default function AdminDashboard() {
                 method: "POST",
                 headers: { "X-Admin-Pin": masterPin }
             });
-
             if (!res.ok) throw new Error("Failed to reset PIN");
-
-            // Refresh list
             fetchBuckets(masterPin, search);
         } catch (err) {
             console.error(err);
             alert("Failed to reset PIN");
+        }
+    };
+
+    const handleDeleteBucket = async (bucketId: string, folderName: string) => {
+        if (!confirm(`Permanently delete "${folderName}" and all its files from storage? This cannot be undone.`)) return;
+
+        try {
+            const res = await fetch(`/api/admin/buckets/${bucketId}`, {
+                method: "DELETE",
+                headers: { "X-Admin-Pin": masterPin }
+            });
+            if (!res.ok) throw new Error("Failed to delete bucket");
+            fetchBuckets(masterPin, search);
+        } catch (err) {
+            console.error(err);
+            alert("Failed to delete bucket");
+        }
+    };
+
+    const handlePurgeExpired = async () => {
+        if (!confirm("Purge all expired buckets and delete their files from storage?")) return;
+        try {
+            const res = await fetch(`/api/cron/purge-expired`);
+            const data = await res.json();
+            alert(`Done! Removed ${data.bucketsRemoved ?? 0} buckets, ${data.filesRemoved ?? 0} files.`);
+            fetchBuckets(masterPin, search);
+        } catch (err) {
+            console.error(err);
+            alert("Purge failed");
         }
     };
 
@@ -106,7 +132,12 @@ export default function AdminDashboard() {
         <main className="container animate-fade-in">
             <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem", marginTop: "1rem" }}>
                 <h1 style={{ fontSize: "2rem", margin: 0 }} className="text-gradient">Doctor Portal</h1>
-                <button className="btn btn-secondary" onClick={() => { setIsAuthenticated(false); setMasterPin(""); setBuckets([]); }}>Logout</button>
+                <div style={{ display: "flex", gap: "0.75rem" }}>
+                    <button className="btn" style={{ background: "rgba(236,72,153,0.1)", color: "var(--accent-pink)", border: "1px solid rgba(236,72,153,0.3)", fontSize: "0.85rem" }} onClick={handlePurgeExpired}>
+                        🗑 Purge Expired
+                    </button>
+                    <button className="btn btn-secondary" onClick={() => { setIsAuthenticated(false); setMasterPin(""); setBuckets([]); }}>Logout</button>
+                </div>
             </header>
 
             <section className="glass-panel" style={{ marginBottom: "2rem" }}>
@@ -151,8 +182,9 @@ export default function AdminDashboard() {
                                         <td style={{ padding: "1rem", fontFamily: "monospace", fontSize: "1.1rem", color: "var(--accent-purple)" }}>{b.pin}</td>
                                         <td style={{ padding: "1rem" }}>{b._count.files}</td>
                                         <td style={{ padding: "1rem", fontSize: "0.85rem", color: "var(--text-secondary)" }}>{new Date(b.expiresAt).toLocaleString()}</td>
-                                        <td style={{ padding: "1rem", textAlign: "right" }}>
+                                        <td style={{ padding: "1rem", textAlign: "right", display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
                                             <button onClick={() => handleResetPin(b.id)} className="btn btn-secondary" style={{ padding: "0.4rem 0.8rem", fontSize: "0.8rem" }}>Reset PIN</button>
+                                            <button onClick={() => handleDeleteBucket(b.id, b.folderName)} className="btn" style={{ padding: "0.4rem 0.8rem", fontSize: "0.8rem", background: "rgba(236,72,153,0.1)", color: "var(--accent-pink)", border: "1px solid rgba(236,72,153,0.3)" }}>Delete</button>
                                         </td>
                                     </tr>
                                 ))}
