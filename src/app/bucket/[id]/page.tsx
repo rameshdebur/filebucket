@@ -11,6 +11,33 @@ interface FileItem {
     downloadUrl: string;
 }
 
+function useCountdown(expiresAt: Date | null) {
+    const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0, expired: false });
+
+    useEffect(() => {
+        if (!expiresAt) return;
+
+        const tick = () => {
+            const diff = expiresAt.getTime() - Date.now();
+            if (diff <= 0) {
+                setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0, expired: true });
+                return;
+            }
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            setTimeLeft({ days, hours, minutes, seconds, expired: false });
+        };
+
+        tick();
+        const interval = setInterval(tick, 1000);
+        return () => clearInterval(interval);
+    }, [expiresAt]);
+
+    return timeLeft;
+}
+
 export default function BucketPage() {
     const { id } = useParams();
     const router = useRouter();
@@ -21,6 +48,8 @@ export default function BucketPage() {
     const [closing, setClosing] = useState(false);
     const [expiresAt, setExpiresAt] = useState<Date | null>(null);
 
+    const countdown = useCountdown(expiresAt);
+
     useEffect(() => {
         fetchFiles();
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -29,48 +58,30 @@ export default function BucketPage() {
     const fetchFiles = async () => {
         try {
             const res = await fetch(`/api/buckets/${id}/files`);
-            if (!res.ok) {
-                throw new Error("Bucket not found or expired");
-            }
+            if (!res.ok) throw new Error("Bucket not found or expired");
             const data = await res.json();
             setFiles(data.files);
-            if (data.expiresAt) {
-                setExpiresAt(new Date(data.expiresAt));
-            }
+            if (data.expiresAt) setExpiresAt(new Date(data.expiresAt));
         } catch (err: unknown) {
-            if (err instanceof Error) {
-                setError(err.message);
-            } else {
-                setError("An unknown error occurred");
-            }
+            setError(err instanceof Error ? err.message : "An unknown error occurred");
         } finally {
             setLoading(false);
         }
     };
 
     const handleDownloadAll = async () => {
-        for (const file of files) {
-            // Using window.open allows multiple downloads efficiently in most modern browsers
-            window.open(file.downloadUrl, "_blank");
-        }
+        for (const file of files) window.open(file.downloadUrl, "_blank");
     };
 
     const handleCloseBucket = async () => {
         if (!confirm("Are you sure? This will permanently delete the bucket and all files from our servers.")) return;
-
         setClosing(true);
         try {
-            const res = await fetch(`/api/buckets/${id}`, {
-                method: "DELETE"
-            });
+            const res = await fetch(`/api/buckets/${id}`, { method: "DELETE" });
             if (!res.ok) throw new Error("Failed to close bucket");
             router.push("/");
         } catch (err: unknown) {
-            if (err instanceof Error) {
-                alert(err.message);
-            } else {
-                alert("An unknown error occurred closing the bucket");
-            }
+            alert(err instanceof Error ? err.message : "An unknown error occurred");
             setClosing(false);
         }
     };
@@ -89,6 +100,8 @@ export default function BucketPage() {
         );
     }
 
+    const pad = (n: number) => String(n).padStart(2, "0");
+
     return (
         <main className="container animate-fade-in" style={{ maxWidth: "800px" }}>
 
@@ -99,24 +112,70 @@ export default function BucketPage() {
 
             {expiresAt && (
                 <div style={{
-                    background: "rgba(236, 72, 153, 0.05)",
-                    border: "1px solid rgba(236, 72, 153, 0.2)",
+                    background: "rgba(236, 72, 153, 0.07)",
+                    border: "1px solid rgba(236, 72, 153, 0.35)",
                     borderRadius: "var(--radius-md)",
-                    padding: "1rem 1.5rem",
+                    padding: "1.25rem 1.5rem",
                     marginBottom: "2rem",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "1rem"
                 }}>
-                    <svg style={{ color: "var(--accent-pink)", width: "24px", height: "24px", flexShrink: 0 }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <div>
-                        <p style={{ margin: 0, fontWeight: 600, color: "var(--accent-pink)", fontSize: "0.95rem" }}>Auto-Shred Timer Active</p>
-                        <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-                            This drop and all files within it will be permanently deleted on {expiresAt.toLocaleDateString()} at {expiresAt.toLocaleTimeString()}.
-                        </p>
+                    {/* Label */}
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "1rem" }}>
+                        <svg style={{ color: "var(--accent-pink)", width: "18px", height: "18px", flexShrink: 0 }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span style={{ fontWeight: 700, color: "var(--accent-pink)", fontSize: "0.85rem", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                            Auto-Shred Timer Active
+                        </span>
                     </div>
+
+                    {/* Big countdown */}
+                    <div style={{ display: "flex", gap: "0.75rem", alignItems: "flex-end" }}>
+                        {[
+                            { value: countdown.days, label: "DAYS" },
+                            { value: countdown.hours, label: "HRS" },
+                            { value: countdown.minutes, label: "MIN" },
+                            { value: countdown.seconds, label: "SEC" },
+                        ].map(({ value, label }, i) => (
+                            <div key={label} style={{ display: "flex", alignItems: "flex-end", gap: "0.75rem" }}>
+                                {i > 0 && (
+                                    <span style={{
+                                        fontSize: "2rem",
+                                        fontWeight: 800,
+                                        color: "rgba(236,72,153,0.4)",
+                                        lineHeight: 1,
+                                        paddingBottom: "1.4rem",
+                                    }}>:</span>
+                                )}
+                                <div style={{ textAlign: "center" }}>
+                                    <div style={{
+                                        fontSize: "2.6rem",
+                                        fontWeight: 800,
+                                        color: countdown.expired ? "#666" : "var(--accent-pink)",
+                                        lineHeight: 1,
+                                        fontVariantNumeric: "tabular-nums",
+                                        textShadow: countdown.expired ? "none" : "0 0 24px rgba(236,72,153,0.5)",
+                                        letterSpacing: "-0.02em",
+                                    }}>
+                                        {pad(value)}
+                                    </div>
+                                    <div style={{
+                                        fontSize: "0.65rem",
+                                        fontWeight: 700,
+                                        color: "rgba(236,72,153,0.5)",
+                                        letterSpacing: "0.12em",
+                                        marginTop: "0.3rem",
+                                    }}>
+                                        {label}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Subtle details line */}
+                    <p style={{ margin: "0.75rem 0 0", fontSize: "0.78rem", color: "var(--text-secondary)" }}>
+                        Files permanently destroyed on {expiresAt.toLocaleDateString()} at {expiresAt.toLocaleTimeString()}
+                    </p>
                 </div>
             )}
 
