@@ -68,27 +68,18 @@ export default function Home() {
       if (!initRes.ok) throw new Error("Failed to initialize bucket");
       const bucketData = await initRes.json();
 
-      // 2. Get Presigned URLs
-      const filePayload = files.map(f => ({ filename: f.name, mimeType: f.type || "application/octet-stream", size: f.size }));
-      const presignRes = await fetch(`/api/buckets/${bucketData.bucketId}/upload`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ files: filePayload }),
+      // 2. Upload files directly through our API (no CORS issues!)
+      const formData = new FormData();
+      files.forEach((file) => {
+        formData.append("files", file);
       });
 
-      if (!presignRes.ok) throw new Error("Failed to get upload URLs");
-      const { presignedUrls } = await presignRes.json();
+      const uploadRes = await fetch(`/api/buckets/${bucketData.bucketId}/upload`, {
+        method: "POST",
+        body: formData,
+      });
 
-      // 3. Upload directly to R2 using presigned URLs
-      await Promise.all(
-        files.map(async (file, index) => {
-          const presigned = presignedUrls[index];
-          await fetch(presigned.uploadUrl, {
-            method: "PUT",
-            body: file,
-          });
-        })
-      );
+      if (!uploadRes.ok) throw new Error("Failed to upload files");
 
       setSuccessData({ pin: bucketData.pin, folderName: bucketData.folderName });
       setFiles([]);

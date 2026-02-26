@@ -2,18 +2,13 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { s3, BUCKET_NAME } from "@/lib/s3";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import crypto from "crypto";
+
+// Increase body size limit for file uploads (50MB)
+export const runtime = "nodejs";
 
 export async function POST(req: Request, { params }: { params: Promise<{ binId: string }> }) {
     try {
-        const body = await req.json();
-        const { files } = body; // Array of { filename, mimeType, size }
-
-        if (!files || !Array.isArray(files) || files.length === 0) {
-            return NextResponse.json({ error: "Files array is required" }, { status: 400 });
-        }
-
         const resolvedParams = await params;
         const binId = resolvedParams.binId;
 
@@ -26,24 +21,33 @@ export async function POST(req: Request, { params }: { params: Promise<{ binId: 
             return NextResponse.json({ error: "Bucket not found or expired" }, { status: 404 });
         }
 
-        const presignedUrls = [];
+        // Parse the FormData from the request
+        const formData = await req.formData();
+        const uploadedFiles = formData.getAll("files") as File[];
 
-        // Process each file to generate a presigned URL and save it to DB
-        for (const file of files) {
-            const { filename, mimeType, size } = file;
+        if (!uploadedFiles || uploadedFiles.length === 0) {
+            return NextResponse.json({ error: "No files provided" }, { status: 400 });
+        }
 
-            // Generate a unique S3 key
+        const results = [];
+
+        for (const file of uploadedFiles) {
             const fileId = crypto.randomUUID();
-            const s3Key = `${bucket.id}/${fileId}-${filename}`;
+            const s3Key = `${bucket.id}/${fileId}-${file.name}`;
 
-            // Create command for upload — keep signed headers minimal for R2 compatibility
+            // Read file into buffer and upload to S3 server-side
+            const arrayBuffer = await file.arrayBuffer();
+            const buffer = Buffer.from(arrayBuffer);
+
             const command = new PutObjectCommand({
                 Bucket: BUCKET_NAME,
                 Key: s3Key,
+                Body: buffer,
+                ContentType: file.type || "application/octet-stream",
+                ContentLength: buffer.length,
             });
 
-            // Generate presigned URL (valid for 15 minutes)
-            const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 900 });
+            await s3.send(command);
 
             // Save file record to Database
             await prisma.file.create({
@@ -51,23 +55,23 @@ export async function POST(req: Request, { params }: { params: Promise<{ binId: 
                     id: fileId,
                     bucketId: bucket.id,
                     s3Key,
-                    filename,
-                    size,
-                    mimeType,
+                    filename: file.name,
+                    size: buffer.length,
+                    mimeType: file.type || "application/octet-stream",
                 }
             });
 
-            presignedUrls.push({
+            results.push({
                 fileId,
-                filename,
-                uploadUrl,
+                filename: file.name,
+                size: buffer.length,
             });
         }
 
-        return NextResponse.json({ presignedUrls }, { status: 200 });
+        return NextResponse.json({ uploaded: results }, { status: 200 });
 
     } catch (error) {
-        console.error("Error generating presigned URLs:", error);
+        console.error("Error uploading files:", error);
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
 }
