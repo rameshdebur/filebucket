@@ -42,8 +42,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ binId: 
 
         const presignedUrls = [];
 
+        const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
+
         for (const file of files) {
             const { filename, mimeType, size } = file;
+
+            if (size > MAX_FILE_SIZE) {
+                return NextResponse.json(
+                    { error: `File "${filename}" exceeds the 100 MB limit (${(size / 1024 / 1024).toFixed(1)} MB).` },
+                    { status: 413 }
+                );
+            }
 
             const fileId = crypto.randomUUID();
             const s3Key = `${bucket.id}/${fileId}-${filename}`;

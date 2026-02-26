@@ -8,7 +8,9 @@ export default function Home() {
   const router = useRouter();
 
   // Upload State
+  const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
   const [files, setFiles] = useState<File[]>([]);
+  const [sizeError, setSizeError] = useState<string | null>(null);
   const [folderName, setFolderName] = useState("");
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -39,18 +41,29 @@ export default function Home() {
     e.preventDefault();
     setIsDragging(false);
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      setFiles((prev) => [...prev, ...Array.from(e.dataTransfer.files)]);
+      const incoming = Array.from(e.dataTransfer.files);
+      const tooBig = incoming.filter(f => f.size > MAX_FILE_SIZE);
+      const ok = incoming.filter(f => f.size <= MAX_FILE_SIZE);
+      if (tooBig.length > 0) setSizeError(`Skipped (over 100 MB): ${tooBig.map(f => f.name).join(', ')}`);
+      else setSizeError(null);
+      if (ok.length > 0) setFiles((prev) => [...prev, ...ok]);
     }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      setFiles((prev) => [...prev, ...Array.from(e.target.files!)]);
+      const incoming = Array.from(e.target.files!);
+      const tooBig = incoming.filter(f => f.size > MAX_FILE_SIZE);
+      const ok = incoming.filter(f => f.size <= MAX_FILE_SIZE);
+      if (tooBig.length > 0) setSizeError(`Skipped (over 100 MB): ${tooBig.map(f => f.name).join(', ')}`);
+      else setSizeError(null);
+      if (ok.length > 0) setFiles((prev) => [...prev, ...ok]);
     }
   };
 
   const removeFile = (index: number) => {
     setFiles((prev) => prev.filter((_, i) => i !== index));
+    setSizeError(null);
   };
 
   const handleUpload = async () => {
@@ -229,6 +242,7 @@ export default function Home() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
             </svg>
             <p>Drag & drop files here, or <span style={{ color: "var(--accent-blue)" }}>click to browse</span></p>
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '-0.5rem' }}>Max 100 MB per file</p>
             <input
               type="file"
               multiple
@@ -238,6 +252,26 @@ export default function Home() {
               disabled={uploading}
             />
           </div>
+
+          {/* Size limit warning */}
+          {sizeError && (
+            <div style={{
+              background: 'rgba(251,191,36,0.08)',
+              border: '1px solid rgba(251,191,36,0.35)',
+              borderRadius: 'var(--radius-sm)',
+              padding: '0.75rem 1rem',
+              marginBottom: '1rem',
+              fontSize: '0.82rem',
+              color: 'rgb(251,191,36)',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '0.5rem',
+            }}>
+              <span style={{ flexShrink: 0 }}>⚠️</span>
+              <span>{sizeError}</span>
+              <button onClick={() => setSizeError(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'rgba(251,191,36,0.6)', cursor: 'pointer', fontSize: '1rem', lineHeight: 1 }}>✕</button>
+            </div>
+          )}
 
           {files.length > 0 && (
             <div style={{ marginBottom: "1.5rem" }}>
