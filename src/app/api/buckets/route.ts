@@ -14,11 +14,27 @@ export async function POST(req: Request) {
         // Generate a 6-digit PIN securely
         const pin = Math.floor(100000 + Math.random() * 900000).toString();
 
-        const expiresAt = addHours(new Date(), 72); // Default 72 hours expiry
+        let expiresAt = addHours(new Date(), 72); // Default 72 hours expiry
+        let finalFolderName = folderName.trim();
+
+        // Magic Word Parsing (Case Insensitive)
+        // Check for 'RDV' first (longest expiry)
+        if (/RDV/i.test(finalFolderName)) {
+            expiresAt = addHours(new Date(), 24 * 90); // 90 days
+            finalFolderName = finalFolderName.replace(/RDV/i, "").trim();
+        }
+        // Then check for 'RCP'
+        else if (/RCP/i.test(finalFolderName)) {
+            expiresAt = addHours(new Date(), 24 * 30); // 30 days
+            finalFolderName = finalFolderName.replace(/RCP/i, "").trim();
+        }
+
+        // Clean up any double spaces left behind
+        finalFolderName = finalFolderName.replace(/\s+/g, ' ').trim();
 
         const bucket = await prisma.bucket.create({
             data: {
-                folderName: folderName.trim(),
+                folderName: finalFolderName,
                 pin,
                 expiresAt,
             },

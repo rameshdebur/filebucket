@@ -39,7 +39,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ binId: s
             })
         );
 
-        return NextResponse.json({ files: filesWithUrls }, { status: 200 });
+        return NextResponse.json({
+            files: filesWithUrls,
+            expiresAt: bucket.expiresAt
+        }, { status: 200 });
 
     } catch (error) {
         console.error("Error retrieving files:", error);

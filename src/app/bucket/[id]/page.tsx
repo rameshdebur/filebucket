@@ -19,6 +19,7 @@ export default function BucketPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [closing, setClosing] = useState(false);
+    const [expiresAt, setExpiresAt] = useState<Date | null>(null);
 
     useEffect(() => {
         fetchFiles();
@@ -33,6 +34,9 @@ export default function BucketPage() {
             }
             const data = await res.json();
             setFiles(data.files);
+            if (data.expiresAt) {
+                setExpiresAt(new Date(data.expiresAt));
+            }
         } catch (err: unknown) {
             if (err instanceof Error) {
                 setError(err.message);
@@ -88,10 +92,33 @@ export default function BucketPage() {
     return (
         <main className="container animate-fade-in" style={{ maxWidth: "800px" }}>
 
-            <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "3rem", marginTop: "2rem" }}>
+            <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem", marginTop: "2rem" }}>
                 <h1 style={{ fontSize: "2rem", margin: 0 }} className="text-gradient">Secure <span className="text-gradient-accent">Drop</span></h1>
                 <button className="btn btn-secondary" onClick={() => router.push("/")}>Leave</button>
             </header>
+
+            {expiresAt && (
+                <div style={{
+                    background: "rgba(236, 72, 153, 0.05)",
+                    border: "1px solid rgba(236, 72, 153, 0.2)",
+                    borderRadius: "var(--radius-md)",
+                    padding: "1rem 1.5rem",
+                    marginBottom: "2rem",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "1rem"
+                }}>
+                    <svg style={{ color: "var(--accent-pink)", width: "24px", height: "24px", flexShrink: 0 }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div>
+                        <p style={{ margin: 0, fontWeight: 600, color: "var(--accent-pink)", fontSize: "0.95rem" }}>Auto-Shred Timer Active</p>
+                        <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+                            This drop and all files within it will be permanently deleted on {expiresAt.toLocaleDateString()} at {expiresAt.toLocaleTimeString()}.
+                        </p>
+                    </div>
+                </div>
+            )}
 
             <section className="glass-panel" style={{ padding: "3rem", marginBottom: "2rem" }}>
 
