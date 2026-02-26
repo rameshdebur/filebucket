@@ -12,7 +12,30 @@ export async function POST(req: Request) {
         }
 
         // Generate a 6-digit PIN securely
-        const pin = Math.floor(1000 + Math.random() * 9000).toString();
+        // Generate a unique 4-digit PIN — ensure no collision with any active, unexpired bucket
+        let pin: string = "";
+        let attempts = 0;
+        while (attempts < 20) {
+            const candidate = Math.floor(1000 + Math.random() * 9000).toString();
+            const existing = await prisma.bucket.findFirst({
+                where: {
+                    pin: candidate,
+                    status: "ACTIVE",
+                    expiresAt: { gt: new Date() },
+                },
+                select: { id: true },
+            });
+            if (!existing) {
+                pin = candidate;
+                break;
+            }
+            attempts++;
+        }
+
+        if (!pin) {
+            // Extremely unlikely — all 9000 PINs exhausted
+            return NextResponse.json({ error: "No available PINs. Try again later." }, { status: 503 });
+        }
 
         let expiresAt = addHours(new Date(), 72); // Default 72 hours expiry
         let finalFolderName = folderName.trim();

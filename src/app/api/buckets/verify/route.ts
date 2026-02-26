@@ -13,7 +13,7 @@ function isRateLimited(ip: string): boolean {
         return false;
     }
 
-    if (entry.count >= 5) return true;
+    if (entry.count >= 10) return true;
 
     entry.count++;
     return false;
