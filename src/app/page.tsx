@@ -203,7 +203,7 @@ export default function Home() {
 
         {/* --- LEFT CARD: UPLOAD --- */}
         <section className="glass-panel">
-          <h2 style={{ fontSize: "1.5rem", marginBottom: "1.5rem" }}>Drop Files</h2>
+          <h2 style={{ fontSize: "1.5rem", marginBottom: "1.5rem" }}>DropR your files here</h2>
 
           <div className="input-group">
             <label className="input-label">Folder Name (Needed for PIN Recovery)</label>
@@ -270,8 +270,8 @@ export default function Home() {
 
         {/* --- RIGHT CARD: RETRIEVE --- */}
         <section className="glass-panel" style={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
-          <h2 style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }}>Retrieve Files</h2>
-          <p style={{ color: "var(--text-secondary)", marginBottom: "2rem", textAlign: "center" }}>Enter your 6-digit bucket PIN</p>
+          <h2 style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }}>Unlock your DropR</h2>
+          <p style={{ color: "var(--text-secondary)", marginBottom: "2rem", textAlign: "center" }}>Enter your 4-digit PIN</p>
 
           <div className="pin-input-container" style={{ marginBottom: "2rem" }}>
             {pin.map((digit, idx) => (
